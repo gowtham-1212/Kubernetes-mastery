@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-app-service
+spec:
+  type: NodePort             # <--- This is the key part
+  selector:
+    app: my-node-app-k8-single-pod         # Must match the label on your Pod
+  ports:
+    - port: 80               # Port inside the cluster
+      targetPort: 3000       # Port your Node.js app is listening on
+      nodePort: 30001        # Port opened on the physical node (Optional, K8s will pick one if omitted)

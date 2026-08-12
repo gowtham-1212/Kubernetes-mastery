@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: node-app-pod
+  labels:
+    app: my-node-app-k8-single-pod
+spec:
+  containers:
+  - name: node-container
+    image: my-node-app-k8-single-pod:v1
+    imagePullPolicy: Never   # This forces K8s to use the local image we just built
+    ports:
+    - containerPort: 3000    # Change this to whatever port your Node app uses

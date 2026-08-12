@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node-app-deployment
+  labels:
+    app: my-node-app-k8-single-pod
+spec:
+  replicas: 3                  # 1. The Manager: "I want 3 copies of this app running at all times"
+  selector:
+    matchLabels:
+      app: my-node-app-k8-single-pod         # 2. The Glue: "I manage any pods with this label"
+  
+  template:                    # 3. The Blueprint (Everything below here is your old pod.yaml!)
+    metadata:
+      labels:
+        app: my-node-app-k8-single-pod       # This label MUST match the selector above
+    spec:
+      containers:
+      - name: node-container
+        image: my-node-app-k8-single-pod:v1
+        imagePullPolicy: Never # Still using your local Minikube Docker image
+        ports:
+        - containerPort: 3000
