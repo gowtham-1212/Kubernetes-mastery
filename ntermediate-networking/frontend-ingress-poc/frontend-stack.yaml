@@ -1,0 +1,55 @@
+---
+# 1. The Frontend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-frontend
+  template:
+    metadata:
+      labels:
+        app: web-frontend
+    spec:
+      containers:
+      - name: custom-frontend
+        image: web-frontend:latest # <-- 1. Your new image name
+        imagePullPolicy: Never       # <-- 2. Forces K8s to use the local build
+        ports:
+        - containerPort: 5173        # <-- 3. Matches your Dockerfile EXPOSE
+
+---
+# 2. The Internal Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-clusterip-svc
+spec:
+  type: ClusterIP                # Internal only! Ingress will handle external access
+  selector:
+    app: web-frontend
+  ports:
+    - port: 80
+      targetPort: 5173
+
+---
+# 3. The Ingress Rule
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend-ingress
+spec:
+  rules:
+  - host: my-frontend-poc.test  # The local domain for your /etc/hosts file
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-clusterip-svc
+            port:
+              number: 80

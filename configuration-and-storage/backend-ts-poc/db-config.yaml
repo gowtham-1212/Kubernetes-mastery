@@ -1,0 +1,19 @@
+---
+# 1. The ConfigMap (Plain text, safe to share)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+data:
+  POSTGRES_USER: admin_user
+  POSTGRES_DB: my_production_db
+
+---
+# 2. The Secret (Base64 encoded, do not commit real passwords to GitHub!)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+type: Opaque
+data:
+  POSTGRES_PASSWORD: bXktc3VwZXItc2VjcmV0  # Base64 for: my-super-secret
