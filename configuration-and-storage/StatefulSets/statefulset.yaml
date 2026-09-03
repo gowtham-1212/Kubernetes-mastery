@@ -1,0 +1,61 @@
+# ==========================================
+# 1. HEADLESS SERVICE (Required for StatefulSets)
+# ==========================================
+# [API SERVER]: Validates the Service manifest.
+apiVersion: v1
+kind: Service
+metadata:
+  name: stateful-service
+spec:
+  # [KUBE-PROXY]: clusterIP: None turns off load balancing. 
+  # Instead, K8s gives each Pod a direct DNS name: node-app-0.stateful-service, node-app-1.stateful-service.
+  clusterIP: None
+  selector:
+    app: stateful-app
+  ports:
+  - port: 3000
+    name: web
+
+---
+# ==========================================
+# 2. STATEFULSET
+# ==========================================
+# [API SERVER]: Writes StatefulSet object to [ETCD].
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: node-app
+spec:
+  # [STATEFULSET CONTROLLER]: Ensures pods are created ONE BY ONE (0 first, then 1).
+  serviceName: "stateful-service"
+  replicas: 2
+  selector:
+    matchLabels:
+      app: stateful-app
+  template:
+    metadata:
+      labels:
+        app: stateful-app
+    spec:
+      containers:
+      - name: node-app
+        image: stateful-app:v1
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 3000
+        volumeMounts:
+        - name: pod-storage
+          mountPath: /data
+  # ==========================================
+  # DYNAMIC STORAGE PROVISIONING PER POD
+  # ==========================================
+  # [STATEFULSET CONTROLLER]: Creates a unique PersistentVolumeClaim for EACH pod index.
+  # Pod node-app-0 gets PVC 'pod-storage-node-app-0', pod node-app-1 gets 'pod-storage-node-app-1'.
+  volumeClaimTemplates:
+  - metadata:
+      name: pod-storage
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 100Mi

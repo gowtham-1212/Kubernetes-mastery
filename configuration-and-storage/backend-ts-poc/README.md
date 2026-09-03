@@ -78,16 +78,16 @@ Run the files in order to build the infrastructure layers:
 
 ```Bash
 # Step A: Create ConfigMap & Secret
-kubectl apply -f 1-db-config.yaml
+kubectl apply -f db-config.yaml
 
 # Step B: Request Storage (PVC)
-kubectl apply -f 2-db-storage.yaml
+kubectl apply -f db-storage.yaml
 
 # Step C: Deploy PostgreSQL Database & Internal Service
-kubectl apply -f 3-db-deployment.yaml
+kubectl apply -f db-deployment.yaml
 
 # Step D: Deploy TypeScript Node.js Backend API
-kubectl apply -f 4-backend-deployment.yaml
+kubectl apply -f backend-deployment.yaml
 ```
 Verification & Chaos Testing
 ## Step 1: Verify All Resources Are Bound and Running

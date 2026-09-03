@@ -1,0 +1,86 @@
+# ==========================================
+# 1. THE DEPLOYMENT
+# ==========================================
+# [API SERVER]: Validates the manifest and writes it to ETCD.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stress-api-deployment
+spec:
+  # [CONTROLLER MANAGER]: Looks at this replica count (starts at 1). Note: The HPA will eventually OVERRIDE this number dynamically!
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stress-api
+  template:
+    metadata:
+      labels:
+        app: stress-api
+    spec:
+      containers:
+      - name: stress-api
+        # [KUBELET]: Instructed to pull this exact image tag.
+        image: stress-api:v1
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 3000
+        # ==========================================
+        # 🚨 HPA REQUIREMENT: RESOURCE REQUESTS 🚨
+        # ==========================================
+        # [SCHEDULER]: Reads this block to find a Node that has at least 50m (50 millicores) of CPU available.
+        # [HPA CONTROLLER]: Uses this "request" as the baseline. If we ask for 50m, and the pod uses 30m, CPU utilization is 60%.
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "128Mi"
+          limits:
+            cpu: "250m" 
+            memory: "256Mi"
+
+---
+# ==========================================
+# 2. THE SERVICE
+# ==========================================
+# [API SERVER]: Validates and stores.
+apiVersion: v1
+kind: Service
+metadata:
+  name: stress-api-service
+spec:
+  # [KUBE-PROXY]: Allocates a port on the host machine to route traffic internally.
+  type: NodePort
+  # [ENDPOINTS CONTROLLER]: Maps the Pod IPs that have this label to the Service.
+  selector:
+    app: stress-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+
+---
+# ==========================================
+# 3. HORIZONTAL POD AUTOSCALER (HPA)
+# ==========================================
+# [API SERVER]: Stores the HPA configuration in ETCD.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: stress-api-hpa
+spec:
+  # [HPA CONTROLLER]: This tells the HPA *which* deployment it is allowed to manipulate.
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: stress-api-deployment
+  # [HPA CONTROLLER]: The hard boundaries. It will never scale below 1 or above 10 pods, regardless of traffic.
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      # [HPA CONTROLLER]: Every 15 seconds, it checks the Metrics Server. 
+      # If the average CPU across all pods goes over 50% of their requested CPU (50m), it calculates how many new pods to add.
+      target:
+        type: Utilization
+        averageUtilization: 50

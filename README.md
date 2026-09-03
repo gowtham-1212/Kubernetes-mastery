@@ -209,3 +209,120 @@ As a DevOps engineer, you will type these commands dozens of times a day. `kubec
 | `kubectl apply -f [file.yaml]` | Creating | "Take this YAML file and make the cluster match whatever is written inside it (create or update)." |
 | `kubectl delete -f [file.yaml]` | Destroying | "Remove the resources defined in this YAML file from the cluster." |
 | `kubectl port-forward pod/[name] 8080:80` | Networking | "Temporarily map port 8080 on my Mac to port 80 on this pod so I can test it in my browser." |
+
+1. The Magic Command: Mapping the Environment
+To point your host machine's Docker CLI at Minikube's internal Docker daemon, run the environment mapping command specific to your operating system.
+
+### For Mac / Linux:
+
+```Bash
+eval $(minikube docker-env)
+```
+### For Windows (PowerShell):
+
+```PowerShell
+minikube docker-env | Invoke-Expression
+```
+
+What just happened?
+This command injected a few environment variables (like DOCKER_HOST and DOCKER_CERT_PATH) into your current terminal session. Now, when you run Docker commands, they are intercepted and sent inside the Minikube cluster.
+
+2. Peek Under the Hood
+Now, run the command you asked about:
+
+```Bash
+docker ps
+```
+Instead of your local containers, you will see a massive list of containers with names starting with k8s_. This is the Kubernetes Control Plane.
+
+Here is the architectural breakdown of the main components you are looking at:
+
+kube-apiserver: The brain of the cluster. Every single command you run via kubectl goes here. It is the only component that talks directly to the database.
+
+etcd: The database. It is a highly-available key-value store that holds the entire "state" of your cluster. If you deploy an NGINX app, that configuration is saved here.
+
+kube-scheduler: The dispatcher. When you ask for a new pod, the scheduler looks at all your worker nodes (Minikube only has one) and decides which node has enough CPU/RAM to host it.
+
+kube-controller-manager: The watcher. It runs continuous background loops comparing the current state of the cluster to your desired state. If a pod crashes, the controller manager notices and tells the API server to spin up a replacement.
+
+kube-proxy: The network manager. This runs on every node and maintains the network rules that allow pods to talk to each other and the outside world.
+
+⚠️ The Modern Kubernetes Caveat
+If you run docker ps after mapping the environment and it says there are no containers running, don't panic.
+
+Kubernetes recently deprecated Docker as its default underlying container engine in favor of containerd. If your Minikube defaulted to containerd, mapping docker-env won't show the K8s components because Docker isn't running them.
+
+If this happens, you can view the architecture using crictl (the CLI for containerd) by SSHing directly into the Minikube node:
+
+```Bash
+# 1. SSH into the Minikube node
+minikube ssh
+
+# 2. List the control plane containers using containerd
+crictl ps
+```
+3. How to Undo the Mapping
+Remember that eval $(minikube docker-env) only applies to your current terminal window. If you open a new tab, it will be back to normal.
+
+If you want to un-map it in your current window and get your local Docker back, run:
+
+### For Mac / Linux:
+
+```Bash
+eval $(minikube docker-env -u)
+```
+### For Windows:
+
+```PowerShell
+minikube docker-env -u | Invoke-Expression
+```
+
+### Kubernetes `kubectl` Command Reference
+
+| Command | Description | Primary Control Plane Component |
+| :--- | :--- | :--- |
+| `kubectl get pods` | Lists all Pods in the current namespace. | `kube-apiserver` (Reads from `etcd`) |
+| `kubectl get pods -o wide` | Lists Pods with extra details like IP address and Node. | `kube-apiserver` (Reads from `etcd`) |
+| `kubectl get all` | Shows common Kubernetes resources such as Pods, Services, Deployments, and ReplicaSets. | `kube-apiserver` (Reads from `etcd`) |
+| `kubectl get nodes` | Lists all Nodes in the Kubernetes cluster. | `kube-apiserver` (Reads from `etcd`) |
+| `kubectl get deployments` | Lists Deployments and shows their desired/current/ready replicas. | `kube-controller-manager` |
+| `kubectl get services` | Lists Services and their networking details. | `kube-apiserver` (Reads from `etcd`) |
+| `kubectl get svc` | Short form of `kubectl get services`. | `kube-apiserver` (Reads from `etcd`) |
+| `kubectl get namespaces` | Lists all namespaces in the cluster. | `kube-apiserver` (Reads from `etcd`) |
+| `kubectl get pods -n <namespace>` | Lists Pods from a specific namespace. | `kube-apiserver` (Reads from `etcd`) |
+| `kubectl describe pod <pod-name>` | Shows detailed information and events about a Pod. | `kube-apiserver` (Reads from `etcd`) |
+| `kubectl describe deployment <deployment-name>`| Shows detailed information about a Deployment. | `kube-controller-manager` |
+| `kubectl describe service <service-name>` | Shows detailed information about a Service. | `kube-apiserver` (Reads from `etcd`) |
+| `kubectl logs <pod-name>` | Displays logs produced by a container in a Pod. | `kube-apiserver` (Proxies to `kubelet`) |
+| `kubectl logs -f <pod-name>` | Continuously follows the Pod's logs. | `kube-apiserver` (Proxies to `kubelet`) |
+| `kubectl logs <pod-name> -c <container-name>` | Displays logs from a specific container inside a Pod. | `kube-apiserver` (Proxies to `kubelet`) |
+| `kubectl exec -it <pod-name> -- sh` | Opens a shell inside a running Pod's container. | `kube-apiserver` (Proxies to `kubelet`) |
+| `kubectl exec -it <pod-name> -- bash` | Opens a Bash shell inside a container, if Bash is installed. | `kube-apiserver` (Proxies to `kubelet`) |
+| `kubectl apply -f deployment.yaml` | Creates or updates Kubernetes resources defined in a YAML file. | `kube-apiserver` (Saves to `etcd`) |
+| `kubectl apply -f k8s/` | Applies all supported Kubernetes YAML files inside a directory. | `kube-apiserver` (Saves to `etcd`) |
+| `kubectl delete -f deployment.yaml` | Deletes the resources defined in the YAML file. | `kube-apiserver` (Updates `etcd`) |
+| `kubectl delete pod <pod-name>` | Deletes a specific Pod. | `kube-apiserver` (Updates `etcd`) |
+| `kubectl delete deployment <deployment-name>` | Deletes a Deployment and its managed resources. | `kube-controller-manager` |
+| `kubectl delete service <service-name>` | Deletes a Service. | `kube-apiserver` (Updates `etcd`) |
+| `kubectl create deployment <name> --image=<image>` | Creates a Deployment using a container image. | `kube-controller-manager` |
+| `kubectl expose deployment <name> --port=80` | Creates a Service to expose a Deployment. | `kube-controller-manager` |
+| `kubectl scale deployment <name> --replicas=3` | Changes the number of desired Pod replicas. | `kube-controller-manager` |
+| `kubectl rollout status deployment/<name>` | Checks whether a Deployment rollout has completed successfully. | `kube-controller-manager` |
+| `kubectl rollout history deployment/<name>` | Shows the revision history of a Deployment. | `kube-controller-manager` |
+| `kubectl rollout undo deployment/<name>` | Rolls a Deployment back to the previous revision. | `kube-controller-manager` |
+| `kubectl set image deployment/<name> <container>=<new-image>` | Updates the container image used by a Deployment. | `kube-controller-manager` |
+| `kubectl get rs` | Lists ReplicaSets in the current namespace. | `kube-controller-manager` |
+| `kubectl get endpoints <service-name>` | Shows the Pod IPs that a Service routes traffic to. | `kube-controller-manager` |
+| `kubectl get events` | Shows cluster events useful for troubleshooting. | `kube-apiserver` (Reads from `etcd`) |
+| `kubectl get events --sort-by=.lastTimestamp` | Shows events ordered by their latest timestamp. | `kube-apiserver` (Reads from `etcd`) |
+| `kubectl top pods` | Shows CPU and memory usage of Pods. | `kube-apiserver` (Proxies to Metrics Server) |
+| `kubectl top nodes` | Shows CPU and memory usage of Nodes. | `kube-apiserver` (Proxies to Metrics Server) |
+| `kubectl port-forward pod/<pod-name> 8080:3000`| Forwards local port 8080 to port 3000 inside the Pod. | `kube-apiserver` (Proxies to `kubelet`) |
+| `kubectl port-forward svc/<service-name> 8080:80` | Forwards local port 8080 to a Service port. | `kube-apiserver` (Proxies to `kubelet`) |
+| `kubectl config get-contexts` | Lists available Kubernetes contexts. | Local Client (`kubeconfig` file) |
+| `kubectl config current-context` | Shows the currently active Kubernetes cluster context. | Local Client (`kubeconfig` file) |
+| `kubectl config use-context <context>` | Switches to a different Kubernetes context. | Local Client (`kubeconfig` file) |
+| `kubectl cluster-info` | Displays information about the Kubernetes control plane and services. | `kube-apiserver` |
+| `kubectl api-resources` | Lists Kubernetes resource types supported by the API Server. | `kube-apiserver` |
+| `kubectl explain pod` | Shows Kubernetes documentation for the Pod resource. | `kube-apiserver` |
+| `kubectl explain deployment.spec` | Shows documentation for a Deployment's spec field. | `kube-apiserver` |

@@ -1,0 +1,64 @@
+# ==========================================
+# 1. THE DEPLOYMENT (Manages the Pods)
+# ==========================================
+
+# [API SERVER]: Validates this object type. It checks if you have permissions to create a Deployment, then saves this entire desired state into [ETCD] (the cluster database).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: poc-backend-deployment
+spec:
+  # [CONTROLLER MANAGER]: The ReplicaSet controller constantly monitors this number. 
+  # If it sees 0 pods running, it screams, "Desired is 1, current is 0!" and generates a new Pod request.
+  replicas: 1 
+  
+  # [CONTROLLER MANAGER]: This is how the controller knows WHICH pods belong to this deployment. 
+  # It looks for any pods in the cluster with the label "app: poc-backend".
+  selector:
+    matchLabels:
+      app: poc-backend
+      
+  # [SCHEDULER & KUBELET]: The 'template' is the actual blueprint for the Pod. 
+  template:
+    metadata:
+      # [CONTROLLER MANAGER]: Attaches this label to the Pod so the selector above can find it.
+      labels:
+        app: poc-backend
+    spec:
+      containers:
+      - name: poc-backend
+        # [KUBELET]: The worker node agent reads this. It tells the local container engine (Docker/containerd) to pull this exact image.
+        image: gowtham/poc-backend:latest
+        
+        # [KUBELET]
+        imagePullPolicy: Never # 
+        
+        # [INFORMATIONAL/KUBELET]: Declares that the Node.js app inside the container is listening on 3000. 
+        # (Note: K8s doesn't strictly enforce this block, but it's crucial for documentation and some network plugins).
+        ports:
+        - containerPort: 3000
+
+---
+# ==========================================
+# 2. THE SERVICE (Manages the Network)
+# ==========================================
+
+# [API SERVER]: Validates the Service object and saves it to ETCD.
+apiVersion: v1
+kind: Service
+metadata:
+  name: poc-backend-service
+spec:
+  # [KUBE-PROXY]: Reads this and says, "I need to open a random high port (30000-32767) on EVERY worker node's IP address and route traffic from it to the Pod."
+  type: NodePort
+  
+  # [CONTROLLER MANAGER]: The Endpoints Controller reads this. It constantly scans the cluster for Pods with "app: poc-backend". 
+  # When it finds them, it grabs their internal IP addresses and adds them to this Service's routing table.
+  selector:
+    app: poc-backend
+  ports:
+    - protocol: TCP
+      # [KUBE-PROXY]: The port this Service is exposed on internally inside the cluster.
+      port: 80
+      # [KUBE-PROXY]: The port the actual traffic is sent to (matching your containerPort of 3000).
+      targetPort: 3000

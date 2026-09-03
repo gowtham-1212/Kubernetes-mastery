@@ -1,0 +1,45 @@
+# ==========================================
+# 1. THE HEADLESS SERVICE
+# ==========================================
+# [API SERVER]: Validates the manifest and stores it.
+apiVersion: v1
+kind: Service
+metadata:
+  name: headless-svc
+spec:
+  # [KUBE-PROXY / COREDNS]: This is the magic line. 'None' tells Kubernetes:
+  # "Do not allocate a virtual IP. Just create DNS A-Records for every Pod."
+  clusterIP: None
+  selector:
+    app: peer-finder
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+
+---
+# ==========================================
+# 2. THE DEPLOYMENT
+# ==========================================
+# [API SERVER]: Saves desired state to ETCD.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: peer-finder-deployment
+spec:
+  # [CONTROLLER MANAGER]: Will spin up 3 pods.
+  replicas: 3
+  selector:
+    matchLabels:
+      app: peer-finder
+  template:
+    metadata:
+      labels:
+        app: peer-finder
+    spec:
+      containers:
+      - name: app
+        image: peer-finder:v1
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 3000
