@@ -1,0 +1,5 @@
+FROM node:18-alpine
+WORKDIR /app
+# Copies the daemon-agent.js we wrote earlier
+COPY daemon-agent.js ./server.js
+CMD ["node", "server.js"]

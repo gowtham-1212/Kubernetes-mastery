@@ -1,0 +1,68 @@
+# ==========================================
+# 1. DEPLOYMENT (With Greedy CPU Limits)
+# ==========================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autoscale-api
+spec:
+  replicas: 1 # We start with just ONE pod. HPA will do the rest.
+  selector:
+    matchLabels:
+      app: autoscale-api
+  template:
+    metadata:
+      labels:
+        app: autoscale-api
+    spec:
+      containers:
+      - name: app
+        image: autoscale-api:v1
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 3000
+        resources:
+          requests:
+            cpu: "1000m" # OVERPOWER FIX: Demands 1 full core per pod immediately.
+          limits:
+            cpu: "1500m"
+
+---
+# ==========================================
+# 2. SERVICE (Required for HPA traffic routing)
+# ==========================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: autoscale-svc
+spec:
+  selector:
+    app: autoscale-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+
+---
+# ==========================================
+# 3. HORIZONTAL POD AUTOSCALER (HPA)
+# ==========================================
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: autoscale-api-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: autoscale-api
+  minReplicas: 1
+  maxReplicas: 30 # Will auto-scale up to 30 pods if CPU stays high
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      # If the pod's CPU usage goes above 50% of its requested CPU, trigger a scale-up!
+      target:
+        type: Utilization
+        averageUtilization: 50

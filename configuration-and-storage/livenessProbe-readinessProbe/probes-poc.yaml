@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: probes-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: probes-app
+  template:
+    metadata:
+      labels:
+        app: probes-app
+    spec:
+      containers:
+      - name: app
+        image: probes-api:v1
+        imagePullPolicy: Never # Fix for local testing
+        ports:
+        - containerPort: 3000
+        
+        # 1. LIVENESS PROBE (Will restart the pod if it fails)
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 3000
+          initialDelaySeconds: 5  # Wait 5s before checking
+          periodSeconds: 5        # Check every 5s
+
+        # 2. READINESS PROBE (Will pull traffic if it fails)
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 3000
+          initialDelaySeconds: 2  # Start checking almost immediately
+          periodSeconds: 3        # Check frequently (every 3s)
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: probes-svc
+spec:
+  selector:
+    app: probes-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000

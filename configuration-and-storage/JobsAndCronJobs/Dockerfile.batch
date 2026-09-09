@@ -1,0 +1,6 @@
+FROM node:18-alpine
+WORKDIR /app
+# Copies the batch-runner.js we wrote earlier
+COPY batch-runner.js ./server.js
+# Note: NO exposed ports, because batch jobs don't take web traffic!
+CMD ["node", "server.js"]

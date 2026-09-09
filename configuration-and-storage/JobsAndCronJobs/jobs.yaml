@@ -1,0 +1,48 @@
+# ==========================================
+# 1. ONE-TIME JOB (Database Migration Example)
+# ==========================================
+# [API SERVER]: Validates object and passes to [JOB CONTROLLER].
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migration-job
+spec:
+  # [JOB CONTROLLER]: Retries the task up to 3 times if the container exits with a non-zero code.
+  backoffLimit: 3
+  template:
+    spec:
+      containers:
+      - name: migration
+        image: batch-runner:v1
+        imagePullPolicy: Never
+        env:
+        - name: TASK_NAME
+          value: "Database Schema Migration v2.1"
+      # [KUBELET]: Never restart the container automatically inside the pod if it exits. Let the Job Controller handle retries.
+      restartPolicy: Never
+
+---
+# ==========================================
+# 2. SCHEDULED CRONJOB (Nightly Cleanup Example)
+# ==========================================
+# [API SERVER]: Saves CronJob into ETCD.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: nightly-cleanup-cronjob
+spec:
+  # [CRONJOB CONTROLLER]: Evaluates schedule. Format: (Minute Hour Day-of-Month Month Day-of-Week)
+  # "*/5 * * * *" means: Run a new Job every 5 minutes.
+  schedule: "*/5 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: cleanup
+            image: batch-runner:v1
+            imagePullPolicy: Never
+            env:
+            - name: TASK_NAME
+              value: "5-Minute Session Cleanup"
+          restartPolicy: Never

@@ -1,0 +1,63 @@
+# ==========================================
+# 1. DEPLOYMENT (Starved of Memory)
+# ==========================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memory-hog-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: memory-hog
+  template:
+    metadata:
+      labels:
+        app: memory-hog
+    spec:
+      containers:
+      - name: app
+        image: memory-hog:v1
+        imagePullPolicy: Never # Fix for local testing
+        ports:
+        - containerPort: 3000
+        resources:
+          # We intentionally starve the pod. It starts with only 25MB.
+          requests:
+            memory: "25Mi"
+            cpu: "100m"
+          limits:
+            memory: "50Mi"  # THE HARD CAP!
+
+---
+# ==========================================
+# 2. SERVICE
+# ==========================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: memory-hog-svc
+spec:
+  selector:
+    app: memory-hog
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+
+---
+# ==========================================
+# 3. VERTICAL POD AUTOSCALER
+# ==========================================
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: memory-hog-vpa
+spec:
+  targetRef:
+    apiVersion: "apps/v1"
+    kind:       Deployment
+    name:       memory-hog-deployment
+  # Auto: VPA will automatically evict the pod and recreate it with higher memory limits
+  updatePolicy:
+    updateMode: "Auto"

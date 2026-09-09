@@ -1,0 +1,35 @@
+# ==========================================
+# DEPLOYMENT WITH STRICT RESOURCE REQUESTS
+# ==========================================
+# [API SERVER]: Validates the resource requests.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: heavy-api-deployment
+spec:
+  # Start with just 2 pods. They will fit perfectly on your current cluster.
+  replicas: 2
+  selector:
+    matchLabels:
+      app: heavy-api
+  template:
+    metadata:
+      labels:
+        app: heavy-api
+    spec:
+      containers:
+      - name: app
+        image: heavy-api:v1
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 3000
+        
+        # ==========================================
+        # 🚨 THE SCHEDULING TRIGGER 🚨
+        # ==========================================
+        resources:
+          # [SCHEDULER]: This tells the scheduler: "DO NOT place this pod on a node 
+          # unless the node has at least 500 millicores of free, unreserved CPU."
+          requests:
+            cpu: "500m"
+            memory: "128Mi"

@@ -1,0 +1,27 @@
+# ==========================================
+# DAEMONSET MANIFEST
+# ==========================================
+# [API SERVER]: Receives definition and notifies [DAEMONSET CONTROLLER].
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-monitor-agent
+spec:
+  selector:
+    matchLabels:
+      name: node-monitor
+  template:
+    metadata:
+      labels:
+        name: node-monitor
+    spec:
+      # [SCHEDULER]: DaemonSets bypass standard scheduling rules or use node affinity 
+      # to ensure EXACTLY one pod lands on every schedulable worker node.
+      containers:
+      - name: agent
+        image: daemon-agent:v1
+        imagePullPolicy: Never
+        resources:
+          limits:
+            memory: 64Mi
+            cpu: 50m
