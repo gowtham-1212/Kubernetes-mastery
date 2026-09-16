@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: secure-api-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: secure-api
+  template:
+    metadata:
+      labels:
+        app: secure-api  # THE TARGET LABEL
+    spec:
+      containers:
+      - name: api
+        image: netpol-api:v1
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: secure-svc
+spec:
+  selector:
+    app: secure-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000

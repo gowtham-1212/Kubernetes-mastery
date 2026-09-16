@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sa-poc-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sa-poc
+  template:
+    metadata:
+      labels:
+        app: sa-poc
+    spec:
+      # Notice: We are NOT specifying a serviceAccountName yet. 
+      # Kubernetes will assign the "default" ServiceAccount.
+      containers:
+      - name: app
+        image: sa-poc-api:v1
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sa-poc-svc
+spec:
+  selector:
+    app: sa-poc
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000

@@ -1,0 +1,34 @@
+# 1. THE IDENTITY
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pod-reader-sa
+  namespace: default
+
+---
+# 2. THE RULEBOOK (Role)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-reader-role
+  namespace: default
+rules:
+- apiGroups: [""]        # Core API group
+  resources: ["pods"]    # The resource we want to access
+  verbs: ["get", "list"] # The actions we are allowed to perform
+
+---
+# 3. THE HANDCUFFS (RoleBinding - Connects the Identity to the Rulebook)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: read-pods-binding
+  namespace: default
+subjects:
+- kind: ServiceAccount
+  name: pod-reader-sa    # Connect this Identity...
+  namespace: default
+roleRef:
+  kind: Role
+  name: pod-reader-role  # ...to this Rulebook.
+  apiGroup: rbac.authorization.k8s.io

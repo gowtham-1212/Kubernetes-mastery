@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: isolate-secure-api
+  namespace: default
+spec:
+  # 1. Who does this firewall apply to?
+  podSelector:
+    matchLabels:
+      app: secure-api
+  
+  # 2. What type of traffic are we filtering?
+  policyTypes:
+  - Ingress # Inbound traffic
+  
+  # 3. The Allow-List Rules (Zero-Trust: Everything else is denied!)
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          role: trusted-client # Only pods with this EXACT label can connect
+    ports:
+    - protocol: TCP
+      port: 3000 # Must match the containerPort
